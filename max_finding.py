@@ -1,6 +1,7 @@
 import logging
 import time
 from cflib.positioning.motion_commander import MotionCommander
+from IBISMotionCommander import *
 import cflib.crtp
 from manual_control import *
 
@@ -12,18 +13,16 @@ logging.basicConfig(level=logging.ERROR)
 # Initialize the low-level drivers (don't list the debug drivers)
 cflib.crtp.init_drivers(enable_debug_driver=False)
 # The values that indicate where the crazyflie thinks it is
-log_vars = ['Sensor.gas', 'kalman.stateX', 'kalman.stateY', 'kalman.stateZ']
+log_vars = [ 'kalman.stateX', 'kalman.stateY', 'kalman.stateZ']
 # Where to print logging values
 log_file = 'crazyflie_data.csv'
+square_spiral = False
 
-with MotionCommander(link_uri=URI, log_file=log_file, log_vars=log_vars) as mc:
+with IBISMotionCommander(link_uri=URI, log_file=log_file, log_vars=log_vars) as mc:
     time.sleep(3)
-    manual_control(mc)
-    for twice_distance in range(3, 1, -1):
-        for _ in range(3):
-            mc.forward(twice_distance/2)
-            mc.circle_right(0.25, angle_degrees=90)
-    mc.stop()
+    mc.manual_control()
+    mc.spiral_in()
+    mc.spiral_out()
     entries = mc.entries()
     max_gas_index = 0
     for i, entry in enumerate(entries):
@@ -36,7 +35,7 @@ with MotionCommander(link_uri=URI, log_file=log_file, log_vars=log_vars) as mc:
     new_x = max_gas_entry['kalman.stateX']
     new_y = max_gas_entry['kalman.stateY']
     new_z = max_gas_entry['kalman.stateZ']
-    mc.move_distance(new_x - curr_x, new_y - curr_y, new_z - curr_z)
+    mc.move_distance(new_x - curr_x, new_y - curr_y, new_z - curr_z + 0.2)
     mc.stop()
     time.sleep(5)
 
