@@ -6,7 +6,7 @@ class IBISMotionCommander(MotionCommander):
     def __init__(self, *args, **kwargs):
         MotionCommander.__init__(self, *args, **kwargs)
 
-    def manual_control(self, distance=0.15, velocity=0.3):
+    def manual_control(self, distance=0.15, velocity=0.5):
         ctrl_token = ''
         print('a = left, d = right, w = forward, s = back')
         print('1 = turn left, 2 = turn right, k = up, j = down, q = quit')
@@ -87,5 +87,4 @@ class IBISMotionCommander(MotionCommander):
         # Make sure that the last packet leaves before the link is closed
         # since the message queue is not flushed before closing
         time.sleep(0.1)
-
 
