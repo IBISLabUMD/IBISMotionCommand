@@ -1,3 +1,4 @@
+from math import cos, sin, pi
 import logging
 import time
 from cflib.positioning.motion_commander import MotionCommander
@@ -24,8 +25,9 @@ with IBISMotionCommander(default_height=0.5, link_uri=URI, log_file=log_file, lo
     for level in range(1, 4, 1): 
         print('spiraling')
         spacing = 0.25 - (level - 1) * 0.05
-        velocity = 0.2 - (level - 1) *0.05
+        velocity = 0.25 - (level - 1) *0.05
         max_radius = 1.5 / level
+        offset = 0.5 - (level - 1) * 0.2 
         mc.spiral_out(max_radius=max_radius, spacing=spacing, velocity=velocity)
         print('stopping')
         mc.stop()
@@ -36,8 +38,11 @@ with IBISMotionCommander(default_height=0.5, link_uri=URI, log_file=log_file, lo
            if entries[i]['Sensor.gas'] > entries[max_gas_index]['Sensor.gas']:
                max_gas_index = i
         max_gas_entry = entries[max_gas_index]
-        new_x = max_gas_entry['kalman.stateX']
-        new_y = max_gas_entry['kalman.stateY']
+        yaw_of_max = max_gas_entry['controller.yaw']
+        new_x = max_gas_entry['kalman.stateX'] + \
+                offset * cos(yaw_of_max * pi / 180)
+        new_y = max_gas_entry['kalman.stateY'] + \
+                offset * sin(yaw_of_max * pi / 180)
         new_z = max_gas_entry['kalman.stateZ']
         if new_z < 0.5:
             print('height error')
@@ -47,10 +52,7 @@ with IBISMotionCommander(default_height=0.5, link_uri=URI, log_file=log_file, lo
         print('turning crazyflie to 0 degrees yaw')
         mc.turn_to_zero()
         print('moving crazyflie')
-        curr_x = mc['kalman.stateX']
-        curr_y = mc['kalman.stateY']
-        curr_z = mc['kalman.stateZ']
-        mc.move_distance(new_x - curr_x, new_y - curr_y, new_z - curr_z)
+        mc.move_to_point(new_x, new_y, new_z)
         print('stopping')
         mc.stop()
         print('going up')

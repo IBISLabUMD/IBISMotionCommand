@@ -1,5 +1,7 @@
+from math import cos, sin, pi
 import time
 from cflib.positioning.motion_commander import MotionCommander
+
 
 class IBISMotionCommander(MotionCommander):
 
@@ -39,7 +41,7 @@ class IBISMotionCommander(MotionCommander):
                 self.circle_left(radius, angle_degrees=180)
             else:
                 self.circle_right(radius, angle_degrees=180)
-            radius -= spacing 
+            radius -= spacing
 
     def spiral_out(self, max_radius=1, spacing=0.15, direction='left',
                    velocity=0.2):
@@ -49,7 +51,7 @@ class IBISMotionCommander(MotionCommander):
                 self.circle_left(radius, angle_degrees=180, velocity=velocity)
             else:
                 self.circle_right(radius, angle_degrees=180)
-            radius += spacing 
+            radius += spacing
 
     def square_spiral_out(self, max_radius=1, spacing=0.15, direction='left'):
         radius = spacing
@@ -58,7 +60,7 @@ class IBISMotionCommander(MotionCommander):
             self.turn_left(90, 45)
             self.forward(radius)
             self.turn_left(90, 45)
-            radius += spacing 
+            radius += spacing
 
     def turn_to_zero(self):
         yaw = self['controller.yaw']
@@ -66,9 +68,29 @@ class IBISMotionCommander(MotionCommander):
             if yaw > 0:
                 self.turn_right(yaw)
             else:
-                self.turn_left(-yaw)
+                self.turn_left(yaw)
             yaw = self['controller.yaw']
 
+    def calculate_inertial_xy(self, x, y):
+        yaw = self['controller.yaw']
+        cos_yaw = cos(yaw * pi / 180)
+        sin_yaw = sin(yaw * pi / 180)
+        inertial_x = x * cos_yaw + y * sin_yaw
+        inertial_y = - x * sin_yaw + y * cos_yaw
+        return inertial_x, inertial_y
+
+    def move_to_point(self, x, y, z):
+        diff_x, diff_y = self.calculate_inertial_xy(x - self['kalman.stateX'],
+                                                    y - self['kalman.stateY'])
+        diff_z = z - self['kalman.stateZ']
+        distance = (diff_x**2 + diff_y**2 + diff_z**2)**0.5
+        while distance > 0.05:
+            self.move_distance(diff_x, diff_y, diff_z)
+            diff_x, diff_y = self.calculate_inertial_xy(
+                                                    x - self['kalman.stateX'],
+                                                    y - self['kalman.stateY'])
+            diff_z = z - self['kalman.stateZ']
+            distance = (diff_x**2 + diff_y**2 + diff_z**2)**0.5
 
     def run_sequence(self, sequence):
         cf = self.cf
@@ -87,4 +109,3 @@ class IBISMotionCommander(MotionCommander):
         # Make sure that the last packet leaves before the link is closed
         # since the message queue is not flushed before closing
         time.sleep(0.1)
-
