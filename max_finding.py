@@ -1,8 +1,7 @@
-from math import cos, sin, pi
+# from math import cos, sin, pi
 import logging
 import time
-from cflib.positioning.motion_commander import MotionCommander
-from IBISMotionCommander import *
+from IBISMotionCommander import IBISMotionCommander
 import cflib.crtp
 
 URI = 'radio://0/80/250K'
@@ -13,50 +12,42 @@ logging.basicConfig(level=logging.ERROR)
 # Initialize the low-level drivers (don't list the debug drivers)
 cflib.crtp.init_drivers(enable_debug_driver=False)
 # The values that indicate where the crazyflie thinks it is
-log_vars = ['Sensor.gas', 'controller.yaw', 'kalman.stateX', 'kalman.stateY', 'kalman.stateZ']
+log_vars = ['Sensor.gas', 'controller.yaw',
+            'kalman.stateX', 'kalman.stateY', 'kalman.stateZ']
 # Where to print logging values
 log_file = 'crazyflie_data.csv'
-square_spiral = False
 
-with IBISMotionCommander(default_height=0.5, link_uri=URI, log_file=log_file, log_vars=log_vars) as mc:
+with IBISMotionCommander(default_height=0.5, link_uri=URI,
+                         log_file=log_file, log_vars=log_vars) as mc:
     time.sleep(3)
     mc.manual_control()
-    start_index = len(mc.entries())
-    for level in range(1, 4, 1): 
+    z = 0.5
+    start = len(mc.data)
+    for level in range(1, 4):
+        max_radius = 1.5 - (level - 1) * 0.5
         print('spiraling')
         spacing = 0.25 - (level - 1) * 0.05
-        velocity = 0.25 - (level - 1) *0.05
-        max_radius = 1.5 / level
-        offset = 0.5 - (level - 1) * 0.2 
-        mc.spiral_out(max_radius=max_radius, spacing=spacing, velocity=velocity)
+        velocity = 0.25 - (level - 1) * 0.05
+        # print(f'new max_radius is: {max_radius}')
+        mc.spiral_out(max_radius=max_radius,
+                      spacing=spacing, velocity=velocity)
         print('stopping')
         mc.stop()
         print('calculating')
-        entries = mc.entries()[start_index:]
-        max_gas_index = 0 
-        for i, entry in enumerate(entries):
-           if entries[i]['Sensor.gas'] > entries[max_gas_index]['Sensor.gas']:
-               max_gas_index = i
-        max_gas_entry = entries[max_gas_index]
-        yaw_of_max = max_gas_entry['controller.yaw']
-        new_x = max_gas_entry['kalman.stateX'] + \
-                offset * cos(yaw_of_max * pi / 180)
-        new_y = max_gas_entry['kalman.stateY'] + \
-                offset * sin(yaw_of_max * pi / 180)
-        new_z = max_gas_entry['kalman.stateZ']
-        if new_z < 0.5:
-            print('height error')
-            print('z distance is: ' + str(new_z))
-            new_z = 0.5
+        stop = len(mc.data)
+        print(f'start: {start}\nstop: {stop}')
+        xmin, xmax, ymin, ymax = mc.gas_region(start=start, stop=stop,
+                                               threshhold=0.7)
+        start = len(mc.data)
+        mc.circle_region(xmin, xmax, ymin, ymax, z)
+
+#        max_radius = 1.0 * max([xmax - xmin, ymax - ymin]) / 2
+        x = (xmax + xmin) / 2
+        y = (ymax + ymin) / 2
+        z += 0.2
         mc.stop()
-        print('turning crazyflie to 0 degrees yaw')
-        mc.turn_to_zero()
+        mc.turn_to_point(x, y)
         print('moving crazyflie')
-        mc.move_to_point(new_x, new_y, new_z)
+        mc.move_to_point(x, y, z)
         print('stopping')
         mc.stop()
-        print('going up')
-        mc.up(0.2)
-        print('stopping')
-        mc.stop()
-        start_index = len(mc.entries())
